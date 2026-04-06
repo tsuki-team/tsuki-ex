@@ -1,16 +1,15 @@
 # ── Board identity ─────────────────────────────────────────────────────────────
 [board]
-id          = "esp8266"
-name        = "ESP8266 Generic (ex)"
+id          = "esp32s2-ex"
+name        = "ESP32-S2 Dev Module (ex)"
 version     = "1.0.0"
-description = "ESP8266 optimizado: modem sleep, -Os, subida a 2 Mbaud"
+description = "ESP32-S2 optimizado: LP core habilitado, 80 MHz, sin BT nativo, -Os"
 author      = "tsuki-ex"
-fqbn        = "esp8266:esp8266:generic"
-variant     = "generic"
+fqbn        = "esp32:esp32:esp32s2"
+variant     = "esp32s2"
 flash_kb    = 4096
-ram_kb      = 80
+ram_kb      = 320
 
-# ── Companion files ────────────────────────────────────────────────────────────
 [files]
 sandbox = "sandbox.json"
 ports   = "ports.json"
@@ -18,14 +17,20 @@ readme  = "README.md"
 
 # ── Toolchain ──────────────────────────────────────────────────────────────────
 [toolchain]
-type        = "esp8266"
+type        = "esp32"
+variant     = "esp32s2"
 upload_tool = "esptool"
 upload_baud = 2000000
 f_cpu       = 80000000
 
 # ── USB auto-detection ─────────────────────────────────────────────────────────
 [detection]
-name_patterns = ["ESP8266", "NodeMCU", "CP2102", "CH340"]
+name_patterns = ["ESP32-S2", "CP2102", "CH340"]
+
+[[detection.usb]]
+vid  = "303A"
+pid  = "0002"
+chip = "ESP32-S2 native USB"
 
 [[detection.usb]]
 vid  = "10C4"
@@ -37,32 +42,22 @@ vid  = "1A86"
 pid  = "7523"
 chip = "CH340"
 
-[[detection.usb]]
-vid  = "0403"
-pid  = "6001"
-chip = "FTDI FT232"
-
-[[detection.usb]]
-vid  = "0403"
-pid  = "6015"
-chip = "FTDI FT231X"
-
 # ── Platform group ─────────────────────────────────────────────────────────────
 [platform]
-id           = "esp8266"
-display_name = "Espressif ESP8266 (tsuki-ex)"
+id           = "esp32-ex"
+display_name = "Espressif ESP32 (tsuki-ex)"
 icon         = "wifi"
-core_package = "esp8266:esp8266"
-size_mb      = 148
+core_package = "esp32:esp32"
+size_mb      = 274
 
 # ── Compiler defines ───────────────────────────────────────────────────────────
 [defines]
 values = [
-  "ARDUINO_ESP8266_GENERIC",
-  "ARDUINO_ARCH_ESP8266",
-  "ESP8266",
+  "ARDUINO_ESP32S2_DEV",
+  "ARDUINO_ARCH_ESP32",
+  "CONFIG_IDF_TARGET_ESP32S2",
   "TSUKI_EX=1",
-  "LWIP_FEATURES=0",
-  "MMU_IRAM_SIZE=0x8000",
-  "MMU_ICACHE_SIZE=0x8000",
+  "CONFIG_PM_ENABLE=1",
+  "CONFIG_ESP32S2_DEFAULT_CPU_FREQ_80=1",
+  "CONFIG_ULP_COPROC_ENABLED=1",
 ]

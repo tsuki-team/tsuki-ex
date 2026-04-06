@@ -1,14 +1,14 @@
 # ── Board identity ─────────────────────────────────────────────────────────────
 [board]
-id          = "esp32s2"
-name        = "ESP32-S2 Dev Module (ex)"
+id          = "esp32c3-ex"
+name        = "ESP32-C3 Dev Module (ex)"
 version     = "1.0.0"
-description = "ESP32-S2 optimizado: LP core habilitado, 80 MHz, sin BT nativo, -Os"
+description = "ESP32-C3 optimizado: modo BLE-only, 80 MHz, RISC-V, -Os, 2 Mbaud"
 author      = "tsuki-ex"
-fqbn        = "esp32:esp32:esp32s2"
-variant     = "esp32s2"
+fqbn        = "esp32:esp32:esp32c3"
+variant     = "esp32c3"
 flash_kb    = 4096
-ram_kb      = 320
+ram_kb      = 400
 
 [files]
 sandbox = "sandbox.json"
@@ -18,24 +18,24 @@ readme  = "README.md"
 # ── Toolchain ──────────────────────────────────────────────────────────────────
 [toolchain]
 type        = "esp32"
-variant     = "esp32s2"
+variant     = "esp32c3"
 upload_tool = "esptool"
 upload_baud = 2000000
 f_cpu       = 80000000
 
 # ── USB auto-detection ─────────────────────────────────────────────────────────
 [detection]
-name_patterns = ["ESP32-S2", "CP2102", "CH340"]
+name_patterns = ["ESP32-C3", "CP2102N", "CH340"]
 
 [[detection.usb]]
 vid  = "303A"
-pid  = "0002"
-chip = "ESP32-S2 native USB"
+pid  = "1001"
+chip = "ESP32-C3 native USB"
 
 [[detection.usb]]
 vid  = "10C4"
 pid  = "EA60"
-chip = "Silicon Labs CP2102"
+chip = "Silicon Labs CP2102N"
 
 [[detection.usb]]
 vid  = "1A86"
@@ -44,7 +44,7 @@ chip = "CH340"
 
 # ── Platform group ─────────────────────────────────────────────────────────────
 [platform]
-id           = "esp32"
+id           = "esp32-ex"
 display_name = "Espressif ESP32 (tsuki-ex)"
 icon         = "wifi"
 core_package = "esp32:esp32"
@@ -53,11 +53,12 @@ size_mb      = 274
 # ── Compiler defines ───────────────────────────────────────────────────────────
 [defines]
 values = [
-  "ARDUINO_ESP32S2_DEV",
+  "ARDUINO_ESP32C3_DEV",
   "ARDUINO_ARCH_ESP32",
-  "CONFIG_IDF_TARGET_ESP32S2",
+  "CONFIG_IDF_TARGET_ESP32C3",
   "TSUKI_EX=1",
   "CONFIG_PM_ENABLE=1",
-  "CONFIG_ESP32S2_DEFAULT_CPU_FREQ_80=1",
-  "CONFIG_ULP_COPROC_ENABLED=1",
+  "CONFIG_ESP_WIFI_ENABLED=0",
+  "CONFIG_BT_ENABLED=1",
+  "CONFIG_BTDM_CTRL_MODE_BLE_ONLY=1",
 ]

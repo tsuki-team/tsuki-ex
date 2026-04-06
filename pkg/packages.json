@@ -1,82 +1,89 @@
 {
   "branch": "main",
   "platforms": {
-    "esp32": {
-      "display_name": "Espressif ESP32 (tsuki-ex)",
-      "icon": "wifi",
-      "description": "ESP32 family optimized by tsuki-ex: 80 MHz default, power management enabled, -Os binary, 2 Mbaud upload. Includes ESP32, S2, and C3 variants.",
-      "core_package": "esp32:esp32",
-      "size_mb": 274,
-      "boards": ["esp32", "esp32s2", "esp32c3"]
-    },
-    "esp8266": {
+    "esp8266-ex": {
       "display_name": "Espressif ESP8266 (tsuki-ex)",
       "icon": "wifi",
-      "description": "ESP8266 family optimized by tsuki-ex: modem sleep between transmissions, reduced lwIP stack, -Os binary, 2 Mbaud upload. Includes generic ESP8266 and Wemos D1 Mini.",
+      "description": "D1 Mini optimizado: modem sleep, -Os, subida a 2 Mbaud",
       "core_package": "esp8266:esp8266",
       "size_mb": 148,
-      "boards": ["esp8266", "d1_mini"]
+      "boards": [
+        "d1_mini-ex",
+        "esp8266-ex"
+      ]
+    },
+    "esp32-ex": {
+      "display_name": "Espressif ESP32 (tsuki-ex)",
+      "icon": "wifi",
+      "description": "ESP32 optimizado: 80 MHz por defecto, WiFi bajo demanda, sin BT, -Os, subida a 2 Mbaud",
+      "core_package": "esp32:esp32",
+      "size_mb": 274,
+      "boards": [
+        "esp32-ex",
+        "esp32c3-ex",
+        "esp32s2-ex"
+      ]
     }
   },
   "packages": {
-    "esp32": {
+    "d1_mini-ex": {
       "type": "board",
-      "platform_id": "esp32",
-      "description": "ESP32 Dev Module — 80 MHz default, WiFi on-demand, no BT, -Os, 2 Mbaud upload",
-      "author": "tsuki-ex",
-      "arch": "esp32",
-      "category": "wifi",
-      "latest": "1.0.0",
-      "versions": {
-        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32/v1.0.0/tsuki_board.toml"
-      }
-    },
-    "esp8266": {
-      "type": "board",
-      "platform_id": "esp8266",
-      "description": "ESP8266 Generic — modem sleep, -Os, 2 Mbaud upload",
+      "platform_id": "esp8266-ex",
+      "description": "D1 Mini optimizado: modem sleep, -Os, subida a 2 Mbaud",
       "author": "tsuki-ex",
       "arch": "esp8266",
       "category": "wifi",
       "latest": "1.0.0",
       "versions": {
-        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp8266/v1.0.0/tsuki_board.toml"
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/d1_mini-ex/v1.0.0/tsuki_board.toml"
       }
     },
-    "esp32s2": {
+    "esp32-ex": {
       "type": "board",
-      "platform_id": "esp32",
-      "description": "ESP32-S2 Dev Module — LP core enabled, 80 MHz default, -Os",
+      "platform_id": "esp32-ex",
+      "description": "ESP32 optimizado: 80 MHz por defecto, WiFi bajo demanda, sin BT, -Os, subida a 2 Mbaud",
       "author": "tsuki-ex",
       "arch": "esp32",
       "category": "wifi",
       "latest": "1.0.0",
       "versions": {
-        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32s2/v1.0.0/tsuki_board.toml"
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32-ex/v1.0.0/tsuki_board.toml"
       }
     },
-    "esp32c3": {
+    "esp32c3-ex": {
       "type": "board",
-      "platform_id": "esp32",
-      "description": "ESP32-C3 Dev Module — BLE-only by default, 80 MHz, -Os, RISC-V",
+      "platform_id": "esp32-ex",
+      "description": "ESP32-C3 optimizado: modo BLE-only, 80 MHz, RISC-V, -Os, 2 Mbaud",
       "author": "tsuki-ex",
       "arch": "esp32",
       "category": "wifi",
       "latest": "1.0.0",
       "versions": {
-        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32c3/v1.0.0/tsuki_board.toml"
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32c3-ex/v1.0.0/tsuki_board.toml"
       }
     },
-    "d1_mini": {
+    "esp32s2-ex": {
       "type": "board",
-      "platform_id": "esp8266",
-      "description": "Wemos D1 Mini — ESP8266 modem sleep, -Os, 2 Mbaud upload",
+      "platform_id": "esp32-ex",
+      "description": "ESP32-S2 optimizado: LP core habilitado, 80 MHz, sin BT nativo, -Os",
+      "author": "tsuki-ex",
+      "arch": "esp32",
+      "category": "wifi",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32s2-ex/v1.0.0/tsuki_board.toml"
+      }
+    },
+    "esp8266-ex": {
+      "type": "board",
+      "platform_id": "esp8266-ex",
+      "description": "ESP8266 optimizado: modem sleep, -Os, subida a 2 Mbaud",
       "author": "tsuki-ex",
       "arch": "esp8266",
       "category": "wifi",
       "latest": "1.0.0",
       "versions": {
-        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/d1_mini/v1.0.0/tsuki_board.toml"
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp8266-ex/v1.0.0/tsuki_board.toml"
       }
     }
   }

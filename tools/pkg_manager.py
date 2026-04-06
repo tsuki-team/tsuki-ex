@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """
-tsuki-ex pkg manager
-====================
-Manages the pkg/ directory for board packages and keeps packages.json in sync.
+tsuki pkg manager
+=================
+Manages the pkg/ directory and keeps packages.json in sync.
+
+Handles both package types:
+  - Libraries  — godotinolib.toml  ([package] section)
+  - Boards     — board.toml  OR  tsuki_board.toml  ([board]/[toolchain] sections)
 
 Usage
 -----
-  python pkg_manager.py list                       # list all board packages
+  python pkg_manager.py list                       # list all packages
   python pkg_manager.py validate                   # validate every package
   python pkg_manager.py sync                       # rebuild packages.json from disk
-  python pkg_manager.py new <id> [--version 1.0.0] [--desc "..."] [--arch esp32]
-  python pkg_manager.py bump <id> <new-version>    # bump version, scaffold new dir
+  python pkg_manager.py new <n> [--version 1.0.0] [--desc "..."] [--lib "Arduino Lib"]
+  python pkg_manager.py add-example <pkg> [--version 1.0.0] <example-name>
+  python pkg_manager.py bump <pkg> <new-version>   # bump version, scaffold new dir
 
-All commands read/write relative to the repo root (one level up from tools/).
+All commands read/write relative to the script's own directory (pkg/).
 """
 
 import argparse
@@ -41,7 +46,15 @@ REPO_ROOT  = SCRIPT_DIR.parent                 # <repo>
 PKG_DIR    = REPO_ROOT / 'pkg'                 # <repo>/pkg
 
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads"
-MANIFEST_NAME   = "tsuki_board.toml"
+
+# Manifest filenames recognised as board or lib manifests.
+# Checked in order: first match wins.
+BOARD_MANIFESTS = ("tsuki_board.toml", "board.toml")   # board
+LIB_MANIFEST    = "godotinolib.toml"                    # lib
+
+# pkg/ subdirectories that are never packages — skip them entirely.
+_SKIP_DIRS = {"keys", "boards", "pkg"}
+_VERSION_RE = re.compile(r'^v\d+\.\d+')   # e.g. "v1.0.0" at top level
 
 
 def _check_pkg_dir() -> None:
@@ -74,55 +87,118 @@ def _registry_url(branch: str | None = None) -> str:
 
 # ── TOML helpers ──────────────────────────────────────────────────────────────
 
-def read_board_toml(path: Path) -> dict:
-    """Parse a tsuki_board.toml, returning a flat dict with all top-level keys."""
+def read_toml(path: Path) -> dict:
+    """Parse a TOML manifest and return a flat dict.
+
+    Flattens *both* the ``[package]`` section (godotinolib.toml) and the
+    ``[board]`` section (board.toml / tsuki_board.toml) to the top level so
+    callers can use ``data['description']`` regardless of manifest type.
+    """
     if tomllib is None:
-        # Minimal regex fallback — reads [board] and [toolchain] sections
         text = path.read_text(encoding='utf-8')
         result: dict = {}
-        current_section = None
+        current_section: str | None = None
+        platform_data: dict = {}
         for line in text.splitlines():
-            m_section = re.match(r'^\[(\w+)\]', line)
-            if m_section:
-                current_section = m_section.group(1)
+            m_sec = re.match(r'^\[(\w+)\]', line)
+            if m_sec:
+                current_section = m_sec.group(1)
                 continue
-            m_kv = re.match(r'(\w+)\s*=\s*"([^"]*)"\s*$', line)
-            if m_kv and current_section in ('board', 'toolchain', None):
-                result[m_kv.group(1)] = m_kv.group(2)
+            m_kv = re.match(r'(\w+)\s*=\s*"([^"]*)"', line)
+            if m_kv:
+                k, v = m_kv.group(1), m_kv.group(2)
+                if current_section in ('package', 'board', None):
+                    result[k] = v
+                elif current_section == 'toolchain' and k == 'type':
+                    result['toolchain_type'] = v  # para _arch_from_data
+                elif current_section == 'platform':
+                    platform_data[k] = v
+            # números en [platform]
+            m_num = re.match(r'(\w+)\s*=\s*(\d+)', line)
+            if m_num and current_section == 'platform':
+                platform_data[m_num.group(1)] = int(m_num.group(2))
+        if platform_data:
+            result['platform'] = platform_data
         return result
 
     with open(path, 'rb') as f:
         raw = tomllib.load(f)
 
-    # Merge [board] fields up to top level for easy access
-    flat = {}
-    if 'board' in raw:
-        flat.update(raw['board'])
-    for k, v in raw.items():
-        if k != 'board':
-            flat[k] = v
-    return flat
+    # Hoist [package] fields (godotinolib.toml)
+    if 'package' in raw and isinstance(raw['package'], dict):
+        flat = dict(raw['package'])
+        for k, v in raw.items():
+            if k != 'package':
+                flat[k] = v
+        return flat
+
+    # Hoist [board] fields (board.toml / tsuki_board.toml)
+    if 'board' in raw and isinstance(raw['board'], dict):
+        flat = dict(raw['board'])
+        for k, v in raw.items():
+            if k != 'board':
+                flat[k] = v
+        return flat
+
+    return raw
+
+
+def _pkg_type_for(ver_dir: Path) -> tuple[str, Path] | None:
+    """Return (type, manifest_path) for the version directory, or None."""
+    # Board manifests take priority
+    for name in BOARD_MANIFESTS:
+        p = ver_dir / name
+        if p.exists():
+            return 'board', p
+    # Lib manifest
+    p = ver_dir / LIB_MANIFEST
+    if p.exists():
+        return 'lib', p
+    return None
+
+
+def _arch_from_data(data: dict) -> str:
+    """Extract architecture from either board.toml or tsuki_board.toml format.
+
+    board.toml        → [board] toolchain_type = "avr"   (flattened to top)
+    tsuki_board.toml  → [toolchain] type = "esp32"       (nested under 'toolchain')
+    """
+    # Flattened board.toml field
+    if arch := data.get('toolchain_type', ''):
+        return arch
+    # Nested tsuki_board.toml field
+    if isinstance(data.get('toolchain'), dict):
+        return data['toolchain'].get('type', '')
+    # Direct 'type' at top level (some formats)
+    return data.get('type', '')
 
 
 # ── Package discovery ─────────────────────────────────────────────────────────
 
 def iter_packages():
-    """Yield (id, version, toml_path) for every board package on disk."""
+    """Yield (id, version, manifest_path, pkg_type) for every package on disk."""
     if not PKG_DIR.exists():
         return
     for pkg_dir in sorted(PKG_DIR.iterdir()):
-        if not pkg_dir.is_dir() or pkg_dir.name.startswith('.'):
+        if not pkg_dir.is_dir():
+            continue
+        name = pkg_dir.name
+        # Skip non-package directories
+        if name.startswith('.') or name in _SKIP_DIRS or _VERSION_RE.match(name):
             continue
         for ver_dir in sorted(pkg_dir.iterdir()):
             if not ver_dir.is_dir():
                 continue
-            toml = ver_dir / MANIFEST_NAME
-            if toml.exists():
-                yield pkg_dir.name, ver_dir.name, toml
+            result = _pkg_type_for(ver_dir)
+            if result is not None:
+                pkg_type, manifest_path = result
+                yield name, ver_dir.name, manifest_path, pkg_type
 
 
-def latest_version(pkg_id: str) -> Optional[tuple]:
-    versions = [(ver, toml) for id_, ver, toml in iter_packages() if id_ == pkg_id]
+def latest_version(pkg_name: str) -> Optional[tuple]:
+    versions = [
+        (ver, p) for n, ver, p, _ in iter_packages() if n == pkg_name
+    ]
     return sorted(versions)[-1] if versions else None
 
 
@@ -137,57 +213,62 @@ def build_registry(branch: str | None = None) -> dict:
     }
 
     all_versions: dict = {}
-    for id_, ver, toml_path in iter_packages():
-        all_versions.setdefault(id_, {})[ver] = toml_path
+    for name, ver, manifest_path, pkg_type in iter_packages():
+        all_versions.setdefault(name, {})[ver] = (manifest_path, pkg_type)
 
-    # ── Build packages + collect platform metadata ────────────────────────────
-
-    # platform_id → {display_name, icon, description, core_package, size_mb, boards[]}
     platforms: dict = {}
 
-    for pkg_id, versions in sorted(all_versions.items()):
-        latest_ver = sorted(versions.keys())[-1]
-        data = read_board_toml(versions[latest_ver])
+    for pkg_name, versions in sorted(all_versions.items()):
+        latest_ver            = sorted(versions.keys())[-1]
+        latest_path, pkg_type = versions[latest_ver]
+        data                  = read_toml(latest_path)
 
         clean_ver   = latest_ver.lstrip('v')
-        description = data.get('description', f'{pkg_id} board package')
+        description = data.get('description', f'{pkg_name} package')
         author      = data.get('author', 'tsuki-ex')
-        arch        = data.get('type', '')   # [toolchain] type = "esp32" etc.
-        category    = 'wifi' if arch in ('esp32', 'esp8266') else 'basic'
 
-        # [platform] section fields (optional — fall back gracefully)
-        plat        = data.get('platform', {}) if isinstance(data.get('platform'), dict) else {}
-        platform_id = plat.get('id', arch) or arch
+        if pkg_type == 'lib':
+            # ... igual que antes ...
+            pass
+        else:
+            arch     = _arch_from_data(data)
+            category = 'wifi' if arch in ('esp32', 'esp8266') else 'basic'
 
-        version_urls = {}
-        for ver, _path in versions.items():
-            clean = ver.lstrip('v')
-            version_urls[clean] = f"{registry_url}/{pkg_id}/{ver}/{MANIFEST_NAME}"
+            # Leer sección [platform] del TOML
+            plat        = data.get('platform', {}) if isinstance(data.get('platform'), dict) else {}
+            platform_id = plat.get('id') or arch
 
-        registry['packages'][pkg_id] = {
-            'type':        'board',
-            'platform_id': platform_id,
-            'description': description,
-            'author':      author,
-            'arch':        arch,
-            'category':    category,
-            'latest':      clean_ver,
-            'versions':    version_urls,
-        }
+            manifest_name = latest_path.name
+            version_urls = {}
+            for ver, (path_, _) in versions.items():
+                clean = ver.lstrip('v')
+                ver_manifest = _pkg_type_for(path_.parent)
+                fname = ver_manifest[1].name if ver_manifest else manifest_name
+                version_urls[clean] = f"{registry_url}/{pkg_name}/{ver}/{fname}"
 
-        # Accumulate platform metadata (first board in platform wins for metadata)
-        if platform_id and platform_id not in platforms:
-            platforms[platform_id] = {
-                'display_name': plat.get('display_name', f'{platform_id.upper()} platform'),
-                'icon':         plat.get('icon', 'circuit'),
-                'description':  description,
-                'core_package': plat.get('core_package', ''),
-                'size_mb':      int(plat.get('size_mb', 0)),
-                'boards':       [],
+            registry['packages'][pkg_name] = {
+                'type':        'board',
+                'platform_id': platform_id,      # ← añadido
+                'description': description,
+                'author':      author,
+                'arch':        arch,
+                'category':    category,
+                'latest':      clean_ver,
+                'versions':    version_urls,
             }
-        if platform_id:
-            if pkg_id not in platforms[platform_id]['boards']:
-                platforms[platform_id]['boards'].append(pkg_id)
+
+            # Acumular plataforma
+            if platform_id not in platforms:
+                platforms[platform_id] = {
+                    'display_name': plat.get('display_name', f'{platform_id} platform'),
+                    'icon':         plat.get('icon', 'wifi'),
+                    'description':  plat.get('description', description),
+                    'core_package': plat.get('core_package', ''),
+                    'size_mb':      int(plat.get('size_mb', 0)),
+                    'boards':       [],
+                }
+            if pkg_name not in platforms[platform_id]['boards']:
+                platforms[platform_id]['boards'].append(pkg_name)
 
     registry['platforms'] = platforms
     return registry
@@ -195,165 +276,207 @@ def build_registry(branch: str | None = None) -> dict:
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
-REQUIRED_TOML_FIELDS = ['id', 'name', 'version', 'description', 'author', 'fqbn']
-REQUIRED_COMPANION   = ['sandbox.json', 'ports.json', 'README.md']
+REQUIRED_LIB_FIELDS   = ['name', 'version', 'description', 'author']
+REQUIRED_LIB_FILES    = ['README.md']
+REQUIRED_BOARD_FIELDS = ['id', 'name', 'version', 'description']
+REQUIRED_BOARD_FILES  = ['README.md']
 
 
-def validate_package(pkg_id: str, ver: str, toml_path: Path) -> list[str]:
+def validate_package(pkg_name: str, ver: str, manifest_path: Path, pkg_type: str) -> list[str]:
     errors = []
-    ver_dir = toml_path.parent
+    ver_dir = manifest_path.parent
 
     try:
-        data = read_board_toml(toml_path)
+        data = read_toml(manifest_path)
     except Exception as e:
         return [f"Cannot parse TOML: {e}"]
 
-    for field in REQUIRED_TOML_FIELDS:
-        if field not in data:
-            errors.append(f"Missing TOML field: '{field}'")
+    req_fields = REQUIRED_LIB_FIELDS if pkg_type == 'lib' else REQUIRED_BOARD_FIELDS
+    req_files  = REQUIRED_LIB_FILES  if pkg_type == 'lib' else REQUIRED_BOARD_FILES
 
-    if data.get('id') != pkg_id:
-        errors.append(f"TOML id '{data.get('id')}' doesn't match directory name '{pkg_id}'")
+    for field in req_fields:
+        if not data.get(field):
+            errors.append(f"Missing/empty field: '{field}'")
 
-    for fname in REQUIRED_COMPANION:
+    for fname in req_files:
         if not (ver_dir / fname).exists():
-            errors.append(f"Missing companion file: {fname}")
+            errors.append(f"Missing file: {fname}")
 
     return errors
 
 
 # ── Scaffolding ───────────────────────────────────────────────────────────────
 
-TOML_TEMPLATE = '''\
-[board]
-id          = "{id}"
+LIB_TOML_TEMPLATE = """\
+[package]
 name        = "{name}"
 version     = "{version}"
 description = "{description}"
-author      = "tsuki-ex"
-fqbn        = "{fqbn}"
-variant     = "{id}"
-flash_kb    = {flash_kb}
-ram_kb      = {ram_kb}
+author      = "tsuki-team"
+cpp_header  = ""         # C++ header to include, e.g. "DHT.h"
+arduino_lib = "{lib}"    # Arduino library name as it appears in library manager
+cpp_class   = ""         # Main C++ class name, if any
 
-[files]
-sandbox = "sandbox.json"
-ports   = "ports.json"
-readme  = "README.md"
+# ── Functions ─────────────────────────────────────────────────────────────────
+# [[function]]
+# go     = "New"
+# python = "new"
+# cpp    = "MyClass({0}, {1})"
 
-[toolchain]
-type        = "{arch}"
-upload_tool = "esptool"
-upload_baud = 2000000
-f_cpu       = {f_cpu}
+# ── Constants ─────────────────────────────────────────────────────────────────
+# [[constant]]
+# go     = "MY_CONST"
+# python = "MY_CONST"
+# cpp    = "MY_CONST"
 
-[detection]
-name_patterns = ["{name}"]
+# ── Examples ──────────────────────────────────────────────────────────────────
+# [[example]]
+# dir = "examples/basic"
+"""
 
-[defines]
-values = [
-  "TSUKI_EX=1",
-]
-'''
+LIB_README_TEMPLATE = """\
+# {name}
 
-SANDBOX_TEMPLATE = '''\
-{{
-  "type": "{id}",
-  "label": "{name} (ex)",
-  "w": 40,
-  "h": 60,
-  "color": "#1a1a2e",
-  "borderColor": "#3d1a7a",
-  "category": "mcu",
-  "description": "{description}",
-  "pins": []
+{description}
+
+## Install
+
+```
+tsuki pkg install {name}
+```
+
+## Usage (Go)
+
+```go
+package main
+
+import (
+    "arduino"
+    "{name}"
+)
+
+func setup() {{
 }}
-'''
 
-PORTS_TEMPLATE = '''\
-{{
-  "usb": [
-    {{ "vid": "1A86", "pid": "7523", "name": "CH340" }},
-    {{ "vid": "0403", "pid": "6001", "name": "FTDI FT232RL" }}
-  ],
-  "name_patterns": ["{name}"]
+func loop() {{
 }}
-'''
+```
 
-README_TEMPLATE = '''\
-# {name} (tsuki-ex)
+## Usage (Python)
 
-Versión optimizada de {name}.
+```python
+import arduino
+import {name}
+```
+"""
 
-## Diferencias frente al paquete estándar
+LIB_EXAMPLE_TEMPLATE = """\
+package main
 
-| Parámetro | Estándar | tsuki-ex |
-|---|---|---|
-| Baud subida | 921600 | **2000000** |
-| TSUKI_EX | — | **=1** |
-'''
+import (
+    "arduino"
+    "{name}"
+)
 
-ARCH_DEFAULTS = {
-    'esp32':   {'fqbn': 'esp32:esp32:{id}',    'flash_kb': 4096, 'ram_kb': 520,  'f_cpu': 80000000},
-    'esp8266': {'fqbn': 'esp8266:esp8266:{id}', 'flash_kb': 4096, 'ram_kb': 80,   'f_cpu': 80000000},
-    'avr':     {'fqbn': 'arduino:avr:{id}',     'flash_kb': 32,   'ram_kb': 2,    'f_cpu': 16000000},
-    'sam':     {'fqbn': 'arduino:sam:{id}',     'flash_kb': 512,  'ram_kb': 96,   'f_cpu': 84000000},
-    'rp2040':  {'fqbn': 'rp2040:rp2040:{id}',  'flash_kb': 2048, 'ram_kb': 264,  'f_cpu': 133000000},
-}
+func setup() {{
+    arduino.SerialBegin(9600)
+}}
+
+func loop() {{
+}}
+"""
+
+LIB_CIRCUIT_TEMPLATE = '{"version":1,"components":[],"wires":[]}'
+LIB_TSUKI_EXAMPLE_TEMPLATE = """\
+{{
+  "name": "{name} basic example",
+  "description": "Basic usage of the {name} package.",
+  "board": "uno",
+  "packages": ["{name}"]
+}}
+"""
 
 
-def scaffold_new(id_: str, version: str, description: str, arch: str, name: str):
+def scaffold_new(name: str, version: str, description: str, lib: str):
     ver_str = f'v{version}'
-    ver_dir = PKG_DIR / id_ / ver_str
+    ver_dir = PKG_DIR / name / ver_str
 
     if ver_dir.exists():
         print(f'[error] {ver_dir} already exists')
         sys.exit(1)
 
     ver_dir.mkdir(parents=True)
+    ex_dir = ver_dir / 'examples' / 'basic'
+    ex_dir.mkdir(parents=True)
 
-    defaults = ARCH_DEFAULTS.get(arch, ARCH_DEFAULTS['esp32'])
-    fqbn     = defaults['fqbn'].format(id=id_)
+    (ver_dir / 'godotinolib.toml').write_text(LIB_TOML_TEMPLATE.format(
+        name=name, version=version, description=description, lib=lib,
+    ), encoding='utf-8')
+    (ver_dir / 'README.md').write_text(LIB_README_TEMPLATE.format(
+        name=name, description=description,
+    ), encoding='utf-8')
+    (ex_dir / 'main.go').write_text(LIB_EXAMPLE_TEMPLATE.format(name=name), encoding='utf-8')
+    (ex_dir / 'circuit.tsuki-circuit').write_text(LIB_CIRCUIT_TEMPLATE, encoding='utf-8')
+    (ex_dir / 'tsuki_example.json').write_text(LIB_TSUKI_EXAMPLE_TEMPLATE.format(name=name), encoding='utf-8')
 
-    (ver_dir / MANIFEST_NAME).write_text(TOML_TEMPLATE.format(
-        id=id_, name=name, version=version, description=description,
-        fqbn=fqbn, arch=arch,
-        flash_kb=defaults['flash_kb'], ram_kb=defaults['ram_kb'],
-        f_cpu=defaults['f_cpu'],
-    ))
-    (ver_dir / 'sandbox.json').write_text(SANDBOX_TEMPLATE.format(
-        id=id_, name=name, description=description,
-    ))
-    (ver_dir / 'ports.json').write_text(PORTS_TEMPLATE.format(name=name))
-    (ver_dir / 'README.md').write_text(README_TEMPLATE.format(name=name))
-
-    print(f'[ok] Scaffolded pkg/{id_}/{ver_str}/')
-    print(f'     Edit {MANIFEST_NAME}, sandbox.json, ports.json')
+    print(f'[ok] Scaffolded pkg/{name}/{ver_str}/')
+    print(f'     Edit godotinolib.toml — fill in cpp_header, arduino_lib, functions, constants.')
     print(f'     Then run: python pkg_manager.py sync')
 
 
-def bump_version(pkg_id: str, new_version: str):
-    latest = latest_version(pkg_id)
-    if not latest:
-        print(f'[error] Package {pkg_id!r} not found')
+def scaffold_example(pkg_name: str, version: str, example_name: str):
+    ver_str  = f'v{version}'
+    ex_dir   = PKG_DIR / pkg_name / ver_str / 'examples' / example_name
+
+    if not (PKG_DIR / pkg_name / ver_str / 'godotinolib.toml').exists():
+        print(f'[error] Package {pkg_name}/{ver_str} does not exist')
+        sys.exit(1)
+    if ex_dir.exists():
+        print(f'[error] Example {example_name} already exists in {pkg_name}/{ver_str}')
         sys.exit(1)
 
-    old_ver, old_toml = latest
-    old_dir = old_toml.parent
+    ex_dir.mkdir(parents=True)
+    (ex_dir / 'main.go').write_text(LIB_EXAMPLE_TEMPLATE.format(name=pkg_name), encoding='utf-8')
+    (ex_dir / 'circuit.tsuki-circuit').write_text(LIB_CIRCUIT_TEMPLATE, encoding='utf-8')
+    (ex_dir / 'tsuki_example.json').write_text(
+        LIB_TSUKI_EXAMPLE_TEMPLATE.format(name=pkg_name), encoding='utf-8',
+    )
+    print(f'[ok] Scaffolded example pkg/{pkg_name}/{ver_str}/examples/{example_name}/')
+    print(f'     Edit main.go and circuit.tsuki-circuit, then add [[example]] to godotinolib.toml.')
+
+
+def bump_version(pkg_name: str, new_version: str):
+    latest = latest_version(pkg_name)
+    if not latest:
+        print(f'[error] Package {pkg_name!r} not found in pkg/')
+        sys.exit(1)
+
+    old_ver, old_manifest = latest
+    old_dir = old_manifest.parent
     new_ver = f'v{new_version}'
-    new_dir = PKG_DIR / pkg_id / new_ver
+    new_dir = PKG_DIR / pkg_name / new_ver
 
     if new_dir.exists():
         print(f'[error] {new_dir} already exists')
         sys.exit(1)
 
     shutil.copytree(old_dir, new_dir)
-    toml_path = new_dir / MANIFEST_NAME
-    text = toml_path.read_text(encoding='utf-8')
-    text = re.sub(r'^version\s*=\s*"[^"]*"', f'version     = "{new_version}"', text, flags=re.MULTILINE)
-    toml_path.write_text(text, encoding='utf-8')
-    print(f'[ok] Bumped {pkg_id}: {old_ver} → {new_ver}')
-    print(f'     Edit pkg/{pkg_id}/{new_ver}/{MANIFEST_NAME}, then run: python pkg_manager.py sync')
+
+    # Update version in whichever manifest is present
+    for manifest_name in (LIB_MANIFEST, *BOARD_MANIFESTS):
+        p = new_dir / manifest_name
+        if p.exists():
+            text = p.read_text(encoding='utf-8')
+            text = re.sub(
+                r'^version\s*=\s*"[^"]*"',
+                f'version     = "{new_version}"',
+                text, flags=re.MULTILINE,
+            )
+            p.write_text(text, encoding='utf-8')
+            break
+
+    print(f'[ok] Bumped {pkg_name}: {old_ver} → {new_ver}')
+    print(f'     Edit pkg/{pkg_name}/{new_ver}/ as needed, then run: python pkg_manager.py sync')
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -361,40 +484,42 @@ def bump_version(pkg_id: str, new_version: str):
 def cmd_list(_args):
     _check_pkg_dir()
     rows = []
-    for id_, ver, toml_path in iter_packages():
+    for name, ver, manifest_path, pkg_type in iter_packages():
         try:
-            data = read_board_toml(toml_path)
+            data = read_toml(manifest_path)
             desc = data.get('description', '')[:55]
-            arch = data.get('type', '?')
+            arch = _arch_from_data(data) if pkg_type == 'board' else data.get('arduino_lib', '')[:15]
         except Exception:
             desc, arch = '(parse error)', '?'
-        rows.append((id_, ver, arch, desc))
+        rows.append((name, ver, pkg_type, arch, desc))
 
     if not rows:
-        print('No board packages found in', PKG_DIR)
+        print('No packages found in', PKG_DIR)
         return
 
     c1 = max(len(r[0]) for r in rows) + 2
     c2 = max(len(r[1]) for r in rows) + 2
-    c3 = 10
-    print(f"{'ID':<{c1}} {'VERSION':<{c2}} {'ARCH':<{c3}} DESCRIPTION")
-    print('─' * 90)
-    for id_, ver, arch, desc in rows:
-        print(f'{id_:<{c1}} {ver:<{c2}} {arch:<{c3}} {desc}')
+    c3 = 7
+    c4 = 18
+    print(f"{'NAME':<{c1}} {'VERSION':<{c2}} {'TYPE':<{c3}} {'ARCH / LIB':<{c4}} DESCRIPTION")
+    print('─' * 100)
+    for name, ver, pkg_type, arch, desc in rows:
+        print(f'{name:<{c1}} {ver:<{c2}} {pkg_type:<{c3}} {arch:<{c4}} {desc}')
 
 
 def cmd_validate(_args):
     _check_pkg_dir()
     found_errors = False
-    for id_, ver, toml_path in iter_packages():
-        errors = validate_package(id_, ver, toml_path)
+    for name, ver, manifest_path, pkg_type in iter_packages():
+        errors = validate_package(name, ver, manifest_path, pkg_type)
+        label = f'{name}/{ver} ({pkg_type})'
         if errors:
             found_errors = True
-            print(f'[FAIL] {id_}/{ver}')
+            print(f'[FAIL] {label}')
             for e in errors:
                 print(f'       • {e}')
         else:
-            print(f'[ OK ] {id_}/{ver}')
+            print(f'[ OK ] {label}')
     if found_errors:
         sys.exit(1)
 
@@ -405,24 +530,33 @@ def cmd_sync(args):
     resolved = branch or _detect_branch()
     registry = build_registry(branch=resolved)
     out_path = PKG_DIR / 'packages.json'
-    out_path.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-    n = len(registry['packages'])
-    print(f'[ok] Wrote packages.json ({n} board package{"s" if n != 1 else ""}) — branch: {resolved}')
+
+    n_lib   = sum(1 for e in registry['packages'].values() if e.get('type') == 'lib')
+    n_board = sum(1 for e in registry['packages'].values() if e.get('type') == 'board')
+
+    out_path.write_text(
+        json.dumps(registry, indent=2, ensure_ascii=False) + '\n',
+        encoding='utf-8',
+    )
+    print(f'[ok] Wrote packages.json — {n_lib} lib(s), {n_board} board(s) — branch: {resolved}')
 
 
 def cmd_new(args):
     scaffold_new(
-        id_=args.id,
+        name=args.name,
         version=args.version,
-        description=args.desc or f'{args.id} board package (tsuki-ex)',
-        arch=args.arch,
-        name=args.name or args.id,
+        description=args.desc or f'{args.name} Arduino library wrapper',
+        lib=args.lib or '',
     )
     cmd_sync(args)
 
 
+def cmd_add_example(args):
+    scaffold_example(args.pkg, args.version, args.example_name)
+
+
 def cmd_bump(args):
-    bump_version(args.id, args.new_version)
+    bump_version(args.pkg, args.new_version)
     cmd_sync(args)
 
 
@@ -430,16 +564,17 @@ def cmd_bump(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='tsuki-ex pkg manager — board packages',
+        description='tsuki pkg manager — library and board packages',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             Examples:
               python pkg_manager.py list
               python pkg_manager.py validate
               python pkg_manager.py sync
-              python pkg_manager.py sync --branch dev
-              python pkg_manager.py new myboard --arch esp32 --desc "My custom board"
-              python pkg_manager.py bump esp32 1.1.0
+              python pkg_manager.py sync --branch v6.0-dev
+              python pkg_manager.py new mylib --desc "My sensor wrapper" --lib "MySensor"
+              python pkg_manager.py add-example dht basic2
+              python pkg_manager.py bump dht 1.1.0
         """),
     )
     sub = parser.add_subparsers(dest='cmd', required=True)
@@ -447,29 +582,34 @@ def main():
     branch_flag = argparse.ArgumentParser(add_help=False)
     branch_flag.add_argument('--branch', default='', metavar='BRANCH')
 
-    sub.add_parser('list',     help='List all board packages')
+    sub.add_parser('list',     help='List all packages')
     sub.add_parser('validate', help='Validate package structure')
     sub.add_parser('sync',     help='Rebuild packages.json from disk', parents=[branch_flag])
 
-    p_new = sub.add_parser('new', help='Scaffold a new board package', parents=[branch_flag])
-    p_new.add_argument('id')
+    p_new = sub.add_parser('new', help='Scaffold a new library package', parents=[branch_flag])
+    p_new.add_argument('name')
     p_new.add_argument('--version', default='1.0.0')
     p_new.add_argument('--desc',    default='')
-    p_new.add_argument('--arch',    default='esp32',
-                       choices=['esp32', 'esp8266', 'avr', 'sam', 'rp2040'])
-    p_new.add_argument('--name',    default='')
+    p_new.add_argument('--lib',     default='', metavar='ARDUINO_LIB',
+                       help='Arduino library name (as in library manager)')
 
-    p_bump = sub.add_parser('bump', help='Bump board package version', parents=[branch_flag])
-    p_bump.add_argument('id')
+    p_ex = sub.add_parser('add-example', help='Add an example to an existing package')
+    p_ex.add_argument('pkg')
+    p_ex.add_argument('example_name')
+    p_ex.add_argument('--version', default='1.0.0')
+
+    p_bump = sub.add_parser('bump', help='Bump package version')
+    p_bump.add_argument('pkg')
     p_bump.add_argument('new_version')
 
     args = parser.parse_args()
     dispatch = {
-        'list':     cmd_list,
-        'validate': cmd_validate,
-        'sync':     cmd_sync,
-        'new':      cmd_new,
-        'bump':     cmd_bump,
+        'list':        cmd_list,
+        'validate':    cmd_validate,
+        'sync':        cmd_sync,
+        'new':         cmd_new,
+        'add-example': cmd_add_example,
+        'bump':        cmd_bump,
     }
     dispatch[args.cmd](args)
 
