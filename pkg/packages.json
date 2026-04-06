@@ -1,7 +1,27 @@
 {
+  "branch": "main",
+  "platforms": {
+    "esp32": {
+      "display_name": "Espressif ESP32 (tsuki-ex)",
+      "icon": "wifi",
+      "description": "ESP32 family optimized by tsuki-ex: 80 MHz default, power management enabled, -Os binary, 2 Mbaud upload. Includes ESP32, S2, and C3 variants.",
+      "core_package": "esp32:esp32",
+      "size_mb": 274,
+      "boards": ["esp32", "esp32s2", "esp32c3"]
+    },
+    "esp8266": {
+      "display_name": "Espressif ESP8266 (tsuki-ex)",
+      "icon": "wifi",
+      "description": "ESP8266 family optimized by tsuki-ex: modem sleep between transmissions, reduced lwIP stack, -Os binary, 2 Mbaud upload. Includes generic ESP8266 and Wemos D1 Mini.",
+      "core_package": "esp8266:esp8266",
+      "size_mb": 148,
+      "boards": ["esp8266", "d1_mini"]
+    }
+  },
   "packages": {
     "esp32": {
       "type": "board",
+      "platform_id": "esp32",
       "description": "ESP32 Dev Module — 80 MHz default, WiFi on-demand, no BT, -Os, 2 Mbaud upload",
       "author": "tsuki-ex",
       "arch": "esp32",
@@ -13,6 +33,7 @@
     },
     "esp8266": {
       "type": "board",
+      "platform_id": "esp8266",
       "description": "ESP8266 Generic — modem sleep, -Os, 2 Mbaud upload",
       "author": "tsuki-ex",
       "arch": "esp8266",
@@ -24,6 +45,7 @@
     },
     "esp32s2": {
       "type": "board",
+      "platform_id": "esp32",
       "description": "ESP32-S2 Dev Module — LP core enabled, 80 MHz default, -Os",
       "author": "tsuki-ex",
       "arch": "esp32",
@@ -35,6 +57,7 @@
     },
     "esp32c3": {
       "type": "board",
+      "platform_id": "esp32",
       "description": "ESP32-C3 Dev Module — BLE-only by default, 80 MHz, -Os, RISC-V",
       "author": "tsuki-ex",
       "arch": "esp32",
@@ -46,6 +69,7 @@
     },
     "d1_mini": {
       "type": "board",
+      "platform_id": "esp8266",
       "description": "Wemos D1 Mini — ESP8266 modem sleep, -Os, 2 Mbaud upload",
       "author": "tsuki-ex",
       "arch": "esp8266",
@@ -55,6 +79,5 @@
         "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/d1_mini/v1.0.0/tsuki_board.toml"
       }
     }
-  },
-  "branch": "main"
+  }
 }

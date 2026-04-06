@@ -42,6 +42,14 @@ vid  = "1A86"
 pid  = "7523"
 chip = "CH340"
 
+# ── Platform group ─────────────────────────────────────────────────────────────
+[platform]
+id           = "esp32"
+display_name = "Espressif ESP32 (tsuki-ex)"
+icon         = "wifi"
+core_package = "esp32:esp32"
+size_mb      = 274
+
 # ── Compiler defines ───────────────────────────────────────────────────────────
 [defines]
 values = [

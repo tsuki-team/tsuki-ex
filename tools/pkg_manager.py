@@ -130,11 +130,20 @@ def latest_version(pkg_id: str) -> Optional[tuple]:
 
 def build_registry(branch: str | None = None) -> dict:
     registry_url = _registry_url(branch)
-    registry: dict = {"packages": {}, "branch": branch or _detect_branch()}
+    registry: dict = {
+        "branch":    branch or _detect_branch(),
+        "platforms": {},
+        "packages":  {},
+    }
 
     all_versions: dict = {}
     for id_, ver, toml_path in iter_packages():
         all_versions.setdefault(id_, {})[ver] = toml_path
+
+    # ── Build packages + collect platform metadata ────────────────────────────
+
+    # platform_id → {display_name, icon, description, core_package, size_mb, boards[]}
+    platforms: dict = {}
 
     for pkg_id, versions in sorted(all_versions.items()):
         latest_ver = sorted(versions.keys())[-1]
@@ -146,13 +155,18 @@ def build_registry(branch: str | None = None) -> dict:
         arch        = data.get('type', '')   # [toolchain] type = "esp32" etc.
         category    = 'wifi' if arch in ('esp32', 'esp8266') else 'basic'
 
+        # [platform] section fields (optional — fall back gracefully)
+        plat        = data.get('platform', {}) if isinstance(data.get('platform'), dict) else {}
+        platform_id = plat.get('id', arch) or arch
+
         version_urls = {}
-        for ver, path in versions.items():
+        for ver, _path in versions.items():
             clean = ver.lstrip('v')
             version_urls[clean] = f"{registry_url}/{pkg_id}/{ver}/{MANIFEST_NAME}"
 
         registry['packages'][pkg_id] = {
             'type':        'board',
+            'platform_id': platform_id,
             'description': description,
             'author':      author,
             'arch':        arch,
@@ -161,6 +175,21 @@ def build_registry(branch: str | None = None) -> dict:
             'versions':    version_urls,
         }
 
+        # Accumulate platform metadata (first board in platform wins for metadata)
+        if platform_id and platform_id not in platforms:
+            platforms[platform_id] = {
+                'display_name': plat.get('display_name', f'{platform_id.upper()} platform'),
+                'icon':         plat.get('icon', 'circuit'),
+                'description':  description,
+                'core_package': plat.get('core_package', ''),
+                'size_mb':      int(plat.get('size_mb', 0)),
+                'boards':       [],
+            }
+        if platform_id:
+            if pkg_id not in platforms[platform_id]['boards']:
+                platforms[platform_id]['boards'].append(pkg_id)
+
+    registry['platforms'] = platforms
     return registry
 
 
