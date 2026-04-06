@@ -1,0 +1,60 @@
+# ── Board identity ─────────────────────────────────────────────────────────────
+[board]
+id          = "esp8266"
+name        = "ESP8266 Generic (ex)"
+version     = "1.0.0"
+description = "ESP8266 optimizado: modem sleep, -Os, subida a 2 Mbaud"
+author      = "tsuki-ex"
+fqbn        = "esp8266:esp8266:generic"
+variant     = "generic"
+flash_kb    = 4096
+ram_kb      = 80
+
+# ── Companion files ────────────────────────────────────────────────────────────
+[files]
+sandbox = "sandbox.json"
+ports   = "ports.json"
+readme  = "README.md"
+
+# ── Toolchain ──────────────────────────────────────────────────────────────────
+[toolchain]
+type        = "esp8266"
+upload_tool = "esptool"
+upload_baud = 2000000
+f_cpu       = 80000000
+
+# ── USB auto-detection ─────────────────────────────────────────────────────────
+[detection]
+name_patterns = ["ESP8266", "NodeMCU", "CP2102", "CH340"]
+
+[[detection.usb]]
+vid  = "10C4"
+pid  = "EA60"
+chip = "Silicon Labs CP2102"
+
+[[detection.usb]]
+vid  = "1A86"
+pid  = "7523"
+chip = "CH340"
+
+[[detection.usb]]
+vid  = "0403"
+pid  = "6001"
+chip = "FTDI FT232"
+
+[[detection.usb]]
+vid  = "0403"
+pid  = "6015"
+chip = "FTDI FT231X"
+
+# ── Compiler defines ───────────────────────────────────────────────────────────
+[defines]
+values = [
+  "ARDUINO_ESP8266_GENERIC",
+  "ARDUINO_ARCH_ESP8266",
+  "ESP8266",
+  "TSUKI_EX=1",
+  "LWIP_FEATURES=0",
+  "MMU_IRAM_SIZE=0x8000",
+  "MMU_ICACHE_SIZE=0x8000",
+]

@@ -1,0 +1,60 @@
+{
+  "packages": {
+    "esp32": {
+      "type": "board",
+      "description": "ESP32 Dev Module — 80 MHz default, WiFi on-demand, no BT, -Os, 2 Mbaud upload",
+      "author": "tsuki-ex",
+      "arch": "esp32",
+      "category": "wifi",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32/v1.0.0/tsuki_board.toml"
+      }
+    },
+    "esp8266": {
+      "type": "board",
+      "description": "ESP8266 Generic — modem sleep, -Os, 2 Mbaud upload",
+      "author": "tsuki-ex",
+      "arch": "esp8266",
+      "category": "wifi",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp8266/v1.0.0/tsuki_board.toml"
+      }
+    },
+    "esp32s2": {
+      "type": "board",
+      "description": "ESP32-S2 Dev Module — LP core enabled, 80 MHz default, -Os",
+      "author": "tsuki-ex",
+      "arch": "esp32",
+      "category": "wifi",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32s2/v1.0.0/tsuki_board.toml"
+      }
+    },
+    "esp32c3": {
+      "type": "board",
+      "description": "ESP32-C3 Dev Module — BLE-only by default, 80 MHz, -Os, RISC-V",
+      "author": "tsuki-ex",
+      "arch": "esp32",
+      "category": "wifi",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/esp32c3/v1.0.0/tsuki_board.toml"
+      }
+    },
+    "d1_mini": {
+      "type": "board",
+      "description": "Wemos D1 Mini — ESP8266 modem sleep, -Os, 2 Mbaud upload",
+      "author": "tsuki-ex",
+      "arch": "esp8266",
+      "category": "wifi",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": "https://raw.githubusercontent.com/tsuki-team/tsuki-ex/refs/heads/main/pkg/d1_mini/v1.0.0/tsuki_board.toml"
+      }
+    }
+  },
+  "branch": "main"
+}

@@ -1,0 +1,33 @@
+{
+  "type": "esp32c3_dev",
+  "label": "ESP32-C3 (ex)",
+  "w": 36,
+  "h": 80,
+  "color": "#1a1a2e",
+  "borderColor": "#3d1a7a",
+  "category": "mcu",
+  "description": "ESP32-C3 Dev Module (tsuki-ex) — BLE-only, 80 MHz, RISC-V",
+  "pins": [
+    { "id": "GND1", "label": "GND",  "type": "gnd",     "rx": 0,  "ry": 6   },
+    { "id": "3V3",  "label": "3.3V", "type": "power",   "rx": 0,  "ry": 12  },
+    { "id": "IO2",  "label": "IO2",  "type": "analog",  "rx": 0,  "ry": 18,  "arduino": 2  },
+    { "id": "IO3",  "label": "IO3",  "type": "analog",  "rx": 0,  "ry": 24,  "arduino": 3  },
+    { "id": "IO4",  "label": "IO4",  "type": "spi",     "rx": 0,  "ry": 30,  "arduino": 4  },
+    { "id": "IO5",  "label": "IO5",  "type": "spi",     "rx": 0,  "ry": 36,  "arduino": 5  },
+    { "id": "IO6",  "label": "IO6",  "type": "spi",     "rx": 0,  "ry": 42,  "arduino": 6  },
+    { "id": "IO7",  "label": "IO7",  "type": "spi",     "rx": 0,  "ry": 48,  "arduino": 7  },
+    { "id": "IO8",  "label": "IO8",  "type": "i2c",     "rx": 0,  "ry": 54,  "arduino": 8  },
+    { "id": "IO9",  "label": "IO9",  "type": "i2c",     "rx": 0,  "ry": 60,  "arduino": 9  },
+    { "id": "GND2", "label": "GND",  "type": "gnd",     "rx": 0,  "ry": 72  },
+    { "id": "5V",   "label": "5V",   "type": "power",   "rx": 36, "ry": 6   },
+    { "id": "RST",  "label": "RST",  "type": "digital", "rx": 36, "ry": 12,  "direction": "in" },
+    { "id": "IO1",  "label": "IO1",  "type": "analog",  "rx": 36, "ry": 18,  "arduino": 1  },
+    { "id": "IO0",  "label": "IO0",  "type": "analog",  "rx": 36, "ry": 24,  "arduino": 0  },
+    { "id": "IO10", "label": "IO10", "type": "digital", "rx": 36, "ry": 30,  "arduino": 10 },
+    { "id": "TX",   "label": "TX",   "type": "digital", "rx": 36, "ry": 36,  "arduino": 21 },
+    { "id": "RX",   "label": "RX",   "type": "digital", "rx": 36, "ry": 42,  "arduino": 20 },
+    { "id": "IO18", "label": "IO18", "type": "digital", "rx": 36, "ry": 48,  "arduino": 18 },
+    { "id": "IO19", "label": "IO19", "type": "digital", "rx": 36, "ry": 54,  "arduino": 19 },
+    { "id": "GND3", "label": "GND",  "type": "gnd",     "rx": 36, "ry": 72  }
+  ]
+}

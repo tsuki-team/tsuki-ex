@@ -1,0 +1,8 @@
+{
+  "usb": [
+    { "vid": "303A", "pid": "0002", "name": "ESP32-S2 native USB" },
+    { "vid": "10C4", "pid": "EA60", "name": "Silicon Labs CP2102" },
+    { "vid": "1A86", "pid": "7523", "name": "CH340"               }
+  ],
+  "name_patterns": ["ESP32-S2", "CP2102", "CH340"]
+}

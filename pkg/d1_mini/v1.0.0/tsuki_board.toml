@@ -1,0 +1,47 @@
+# ── Board identity ─────────────────────────────────────────────────────────────
+[board]
+id          = "d1_mini"
+name        = "Wemos D1 Mini (ex)"
+version     = "1.0.0"
+description = "D1 Mini optimizado: modem sleep, -Os, subida a 2 Mbaud"
+author      = "tsuki-ex"
+fqbn        = "esp8266:esp8266:d1_mini"
+variant     = "d1_mini"
+flash_kb    = 4096
+ram_kb      = 80
+
+[files]
+sandbox = "sandbox.json"
+ports   = "ports.json"
+readme  = "README.md"
+
+# ── Toolchain ──────────────────────────────────────────────────────────────────
+[toolchain]
+type        = "esp8266"
+upload_tool = "esptool"
+upload_baud = 2000000
+f_cpu       = 80000000
+
+# ── USB auto-detection ─────────────────────────────────────────────────────────
+[detection]
+name_patterns = ["D1 mini", "Wemos", "CH340"]
+
+[[detection.usb]]
+vid  = "1A86"
+pid  = "7523"
+chip = "CH340"
+
+[[detection.usb]]
+vid  = "0403"
+pid  = "6001"
+chip = "FTDI FT232"
+
+# ── Compiler defines ───────────────────────────────────────────────────────────
+[defines]
+values = [
+  "ARDUINO_ESP8266_WEMOS_D1MINI",
+  "ARDUINO_ARCH_ESP8266",
+  "ESP8266",
+  "TSUKI_EX=1",
+  "LWIP_FEATURES=0",
+]

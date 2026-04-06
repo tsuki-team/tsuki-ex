@@ -1,0 +1,30 @@
+{
+  "type": "esp8266_generic",
+  "label": "ESP8266 (ex)",
+  "w": 36,
+  "h": 76,
+  "color": "#1a2e1a",
+  "borderColor": "#2a7a2a",
+  "category": "mcu",
+  "description": "ESP8266 Generic (tsuki-ex) — modem sleep, -Os",
+  "pins": [
+    { "id": "RST",  "label": "RST",  "type": "digital", "rx": 0,  "ry": 6,  "direction": "in" },
+    { "id": "ADC",  "label": "A0",   "type": "analog",  "rx": 0,  "ry": 12, "arduino": 0 },
+    { "id": "EN",   "label": "EN",   "type": "digital", "rx": 0,  "ry": 18 },
+    { "id": "IO16", "label": "D0",   "type": "digital", "rx": 0,  "ry": 24, "arduino": 16 },
+    { "id": "IO14", "label": "D5",   "type": "spi",     "rx": 0,  "ry": 30, "arduino": 14 },
+    { "id": "IO12", "label": "D6",   "type": "spi",     "rx": 0,  "ry": 36, "arduino": 12 },
+    { "id": "IO13", "label": "D7",   "type": "spi",     "rx": 0,  "ry": 42, "arduino": 13 },
+    { "id": "VCC",  "label": "3.3V", "type": "power",   "rx": 0,  "ry": 48 },
+    { "id": "GND1", "label": "GND",  "type": "gnd",     "rx": 0,  "ry": 54 },
+    { "id": "TX",   "label": "TX",   "type": "digital", "rx": 36, "ry": 6,  "arduino": 1  },
+    { "id": "RX",   "label": "RX",   "type": "digital", "rx": 36, "ry": 12, "arduino": 3  },
+    { "id": "IO5",  "label": "D1",   "type": "i2c",     "rx": 36, "ry": 18, "arduino": 5  },
+    { "id": "IO4",  "label": "D2",   "type": "i2c",     "rx": 36, "ry": 24, "arduino": 4  },
+    { "id": "IO0",  "label": "D3",   "type": "digital", "rx": 36, "ry": 30, "arduino": 0  },
+    { "id": "IO2",  "label": "D4",   "type": "digital", "rx": 36, "ry": 36, "arduino": 2  },
+    { "id": "IO15", "label": "D8",   "type": "spi",     "rx": 36, "ry": 42, "arduino": 15 },
+    { "id": "GND2", "label": "GND",  "type": "gnd",     "rx": 36, "ry": 48 },
+    { "id": "5V",   "label": "5V",   "type": "power",   "rx": 36, "ry": 54 }
+  ]
+}

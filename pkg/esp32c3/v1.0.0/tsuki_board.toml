@@ -1,0 +1,56 @@
+# ── Board identity ─────────────────────────────────────────────────────────────
+[board]
+id          = "esp32c3"
+name        = "ESP32-C3 Dev Module (ex)"
+version     = "1.0.0"
+description = "ESP32-C3 optimizado: modo BLE-only, 80 MHz, RISC-V, -Os, 2 Mbaud"
+author      = "tsuki-ex"
+fqbn        = "esp32:esp32:esp32c3"
+variant     = "esp32c3"
+flash_kb    = 4096
+ram_kb      = 400
+
+[files]
+sandbox = "sandbox.json"
+ports   = "ports.json"
+readme  = "README.md"
+
+# ── Toolchain ──────────────────────────────────────────────────────────────────
+[toolchain]
+type        = "esp32"
+variant     = "esp32c3"
+upload_tool = "esptool"
+upload_baud = 2000000
+f_cpu       = 80000000
+
+# ── USB auto-detection ─────────────────────────────────────────────────────────
+[detection]
+name_patterns = ["ESP32-C3", "CP2102N", "CH340"]
+
+[[detection.usb]]
+vid  = "303A"
+pid  = "1001"
+chip = "ESP32-C3 native USB"
+
+[[detection.usb]]
+vid  = "10C4"
+pid  = "EA60"
+chip = "Silicon Labs CP2102N"
+
+[[detection.usb]]
+vid  = "1A86"
+pid  = "7523"
+chip = "CH340"
+
+# ── Compiler defines ───────────────────────────────────────────────────────────
+[defines]
+values = [
+  "ARDUINO_ESP32C3_DEV",
+  "ARDUINO_ARCH_ESP32",
+  "CONFIG_IDF_TARGET_ESP32C3",
+  "TSUKI_EX=1",
+  "CONFIG_PM_ENABLE=1",
+  "CONFIG_ESP_WIFI_ENABLED=0",
+  "CONFIG_BT_ENABLED=1",
+  "CONFIG_BTDM_CTRL_MODE_BLE_ONLY=1",
+]
