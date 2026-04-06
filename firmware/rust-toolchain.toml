@@ -1,0 +1,4 @@
+# ESP32 Xtensa targets require the Espressif Rust fork.
+# Install with: cargo install espup && espup install
+[toolchain]
+channel = "esp"

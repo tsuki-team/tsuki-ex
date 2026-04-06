@@ -1,0 +1,22 @@
+# ── ESP32 target ──────────────────────────────────────────────────────────────
+[build]
+target = "xtensa-esp32-espidf"
+
+[target.xtensa-esp32-espidf]
+linker     = "ldproxy"
+rustflags  = [
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=--defsym=__HEAP_SIZE=0x40000",
+]
+runner = "espflash flash --monitor"
+
+[target.riscv32imc-esp-espidf]
+linker     = "ldproxy"
+rustflags  = ["-C", "link-arg=-Tlink.x"]
+runner = "espflash flash --monitor"
+
+# ── Env: ESP-IDF toolchain ────────────────────────────────────────────────────
+[env]
+ESP_IDF_VERSION      = "v5.1.2"
+ESP_IDF_SDKCONFIG_DEFAULTS = { value = "sdkconfig.defaults", relative = true }
+MCU                  = "esp32"

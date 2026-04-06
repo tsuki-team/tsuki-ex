@@ -1,0 +1,38 @@
+[package]
+name        = "tsuki-ex-fw"
+version     = "0.1.0"
+edition     = "2021"
+authors     = ["tsuki-ex"]
+description = "tsuki-ex optimized firmware for ESP32 family"
+build       = "build.rs"
+
+# ── Feature flags ─────────────────────────────────────────────────────────────
+# Activated at build time via TSUKI_MODULES env var or --features flag.
+# In tsuki source: // #[modules(Wifi, Bt, Fs, Ble)]
+[features]
+default    = []
+wifi       = ["esp-idf-svc/wifi"]
+bluetooth  = ["esp-idf-svc/bt"]
+ble        = ["bluetooth"]
+filesystem = []
+all        = ["wifi", "ble", "filesystem"]
+
+# ── Runtime dependencies ──────────────────────────────────────────────────────
+[dependencies]
+esp-idf-sys = { version = "0.35", features = ["binstart"] }
+esp-idf-hal = "0.44"
+esp-idf-svc = { version = "0.49", default-features = false }
+log         = "0.4"
+
+[build-dependencies]
+embuild = "0.32"
+
+# ── Profiles ──────────────────────────────────────────────────────────────────
+[profile.release]
+opt-level     = "s"
+lto           = true
+codegen-units = 1
+strip         = true
+
+[profile.dev]
+opt-level = 1
